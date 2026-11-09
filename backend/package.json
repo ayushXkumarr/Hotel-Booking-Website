@@ -1,0 +1,34 @@
+{
+  "name": "hotel-booking-backend",
+  "version": "1.0.0",
+  "description": "Hotel Booking Management System - Backend API",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "node tests/e2e_verification.mjs",
+    "seed:admin": "node src/utils/seedAdmin.js",
+    "seed:hotels": "node src/utils/seedHotels.js"
+  },
+  "keywords": [
+    "hotel-booking",
+    "express",
+    "mongodb",
+    "jwt",
+    "fullstack"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
