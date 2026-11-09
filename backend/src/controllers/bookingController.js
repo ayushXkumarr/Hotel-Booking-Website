@@ -164,6 +164,16 @@ export const checkAvailability = async (req, res, next) => {
       });
     }
 
+    // 5b. Room Currency Validation: Only rooms denominated in INR can be booked during INR transition
+    if (room.currency !== 'INR') {
+      return res.status(200).json({
+        success: true,
+        isAvailable: false,
+        message: 'This room is currently listed in an un-migrated currency and cannot be booked. Only rooms denominated in Indian Rupees (INR) are available for new reservations.',
+        currency: room.currency || 'USD',
+      });
+    }
+
     // 6. Calculate Price Breakdown
     const totalPrice = parsedDates.totalNights * room.pricePerNight;
 
@@ -175,6 +185,7 @@ export const checkAvailability = async (req, res, next) => {
         roomType: room.roomType,
         roomNumber: room.roomNumber,
         pricePerNight: room.pricePerNight,
+        currency: 'INR',
         maxGuests: room.maxGuests,
         bedType: room.bedType,
         hotel: room.hotel,
@@ -183,6 +194,7 @@ export const checkAvailability = async (req, res, next) => {
       checkOutDate: parsedDates.checkOutDate,
       totalNights: parsedDates.totalNights,
       pricePerNight: room.pricePerNight,
+      currency: 'INR',
       totalPrice,
       guestsCount: guests,
       message: 'Room is available for reservation.',
@@ -252,6 +264,15 @@ export const createBooking = async (req, res, next) => {
       });
     }
 
+    // 5b. Room Currency Validation: New bookings only allowed for INR-denominated rooms
+    if (room.currency !== 'INR') {
+      return res.status(400).json({
+        success: false,
+        message: 'This room is currently listed in an un-migrated currency and cannot be booked. Only rooms denominated in Indian Rupees (INR) are available for new reservations.',
+        currency: room.currency || 'USD',
+      });
+    }
+
     // 6. Backend Pricing Calculation (NEVER trust frontend price)
     const pricePerNightSnapshot = room.pricePerNight;
     const totalPrice = parsedDates.totalNights * pricePerNightSnapshot;
@@ -297,6 +318,7 @@ export const createBooking = async (req, res, next) => {
       checkOutDate: parsedDates.checkOutDate,
       totalNights: parsedDates.totalNights,
       pricePerNightSnapshot,
+      currency: 'INR',
       totalPrice,
       guestsCount: guests,
       bookingStatus: 'Confirmed',
@@ -622,13 +644,20 @@ export const getBookingStatsAdmin = async (req, res, next) => {
         Booking.countDocuments({ bookingStatus: 'Completed' }),
       ]);
 
-    // Calculate total simulated revenue from confirmed bookings
+    // Calculate simulated revenue grouped by currency from confirmed bookings
     const revenueAgg = await Booking.aggregate([
       { $match: { bookingStatus: 'Confirmed' } },
-      { $group: { _id: null, totalRevenue: { $sum: '$totalPrice' } } },
+      { $group: { _id: { $ifNull: ['$currency', 'USD'] }, totalRevenue: { $sum: '$totalPrice' } } },
     ]);
 
-    const totalRevenue = revenueAgg.length > 0 ? revenueAgg[0].totalRevenue : 0;
+    const revenueByCurrency = { INR: 0, USD: 0 };
+    revenueAgg.forEach((item) => {
+      const curr = item._id || 'USD';
+      revenueByCurrency[curr] = item.totalRevenue;
+    });
+
+    const totalRevenueINR = revenueByCurrency.INR || 0;
+    const totalRevenueUSD = revenueByCurrency.USD || 0;
 
     res.status(200).json({
       success: true,
@@ -637,7 +666,10 @@ export const getBookingStatsAdmin = async (req, res, next) => {
         confirmedBookings,
         cancelledBookings,
         completedBookings,
-        totalRevenue,
+        totalRevenue: totalRevenueINR,
+        totalRevenueINR,
+        totalRevenueUSD,
+        revenueByCurrency,
       },
     });
   } catch (error) {

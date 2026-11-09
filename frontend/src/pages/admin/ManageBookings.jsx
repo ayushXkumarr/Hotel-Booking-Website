@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import { formatINR, formatCurrency } from '../../utils/formatCurrency';
 import {
   CalendarCheck,
   Search,
   Filter,
   Building2,
-  DollarSign,
+  IndianRupee,
   User,
   Clock,
   CheckCircle2,
@@ -219,14 +220,19 @@ export default function ManageBookings() {
                 Simulated Revenue
               </p>
               <h3 className="text-2xl font-black text-slate-900 mt-1">
-                ${stats.totalRevenue}
+                {formatINR(stats.totalRevenueINR || stats.totalRevenue)}
               </h3>
               <p className="text-[10px] text-purple-600 font-medium mt-0.5">
                 From Confirmed Stays
+                {stats.totalRevenueUSD > 0 && (
+                  <span className="text-[9px] text-slate-400 ml-1 font-normal">
+                    (+ {formatCurrency(stats.totalRevenueUSD, 'USD')} legacy)
+                  </span>
+                )}
               </p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <DollarSign className="w-6 h-6" />
+              <IndianRupee className="w-6 h-6" />
             </div>
           </div>
         </div>
@@ -324,7 +330,7 @@ export default function ManageBookings() {
                     </td>
                     <td className="py-4 px-6">
                       <div className="font-black text-slate-900 text-sm">
-                        ${b.totalPrice}
+                        {formatCurrency(b.totalPrice, b.currency || 'USD')}
                       </div>
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-0.5 ${

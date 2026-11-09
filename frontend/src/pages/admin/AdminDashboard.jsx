@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import { formatINR, formatCurrency } from '../../utils/formatCurrency';
 import {
   Shield,
   Building2,
   Bed,
   CalendarCheck,
   Users,
-  DollarSign,
+  IndianRupee,
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
@@ -20,6 +21,8 @@ export default function AdminDashboard() {
     totalBookings: 0,
     confirmedBookings: 0,
     totalRevenue: 0,
+    totalRevenueINR: 0,
+    totalRevenueUSD: 0,
     loading: true,
   });
 
@@ -38,7 +41,9 @@ export default function AdminDashboard() {
           hotelsCount: totalHotels,
           totalBookings: bStats.totalBookings || 0,
           confirmedBookings: bStats.confirmedBookings || 0,
-          totalRevenue: bStats.totalRevenue || 0,
+          totalRevenue: bStats.totalRevenueINR ?? bStats.totalRevenue ?? 0,
+          totalRevenueINR: bStats.totalRevenueINR ?? bStats.totalRevenue ?? 0,
+          totalRevenueUSD: bStats.totalRevenueUSD || 0,
           loading: false,
         });
       } catch (err) {
@@ -123,12 +128,19 @@ export default function AdminDashboard() {
           <div>
             <p className="text-xs uppercase tracking-wider font-semibold text-slate-500">Gross Revenue</p>
             <h3 className="text-3xl font-black text-slate-900 mt-1">
-              ${stats.totalRevenue}
+              {formatINR(stats.totalRevenueINR || stats.totalRevenue)}
             </h3>
-            <p className="text-[11px] text-emerald-600 font-medium mt-1">Confirmed Stays</p>
+            <p className="text-[11px] text-emerald-600 font-medium mt-1">
+              Confirmed Stays
+              {stats.totalRevenueUSD > 0 && (
+                <span className="text-[10px] text-slate-400 ml-1.5 font-normal">
+                  (+ {formatCurrency(stats.totalRevenueUSD, 'USD')} legacy)
+                </span>
+              )}
+            </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <DollarSign className="w-6 h-6" />
+            <IndianRupee className="w-6 h-6" />
           </div>
         </div>
 

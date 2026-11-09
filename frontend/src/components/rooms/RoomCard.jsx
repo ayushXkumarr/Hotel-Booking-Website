@@ -1,5 +1,6 @@
 import React from 'react';
 import { Bed, Users, CheckCircle2, Sparkles, AlertCircle } from 'lucide-react';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 export default function RoomCard({ room, onSelectRoom }) {
   const defaultImage =
@@ -100,18 +101,19 @@ export default function RoomCard({ room, onSelectRoom }) {
               Rate per night
             </div>
             <div className="text-2xl font-extrabold text-slate-900">
-              ${room.pricePerNight}{' '}
+              {formatCurrency(room.pricePerNight, room.currency || 'INR')}{' '}
               <span className="text-xs font-normal text-slate-500">/ night</span>
             </div>
           </div>
 
           <button
             type="button"
-            disabled={!room.isAvailable}
+            disabled={!room.isAvailable || (room.currency && room.currency !== 'INR')}
             onClick={() => onSelectRoom && onSelectRoom(room)}
+            title={room.currency && room.currency !== 'INR' ? 'Room rate is pending INR update' : ''}
             className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-md shadow-brand-600/20 transition-all"
           >
-            Reserve Room
+            {room.currency && room.currency !== 'INR' ? 'Pending INR Rate' : 'Reserve Room'}
           </button>
         </div>
       </div>

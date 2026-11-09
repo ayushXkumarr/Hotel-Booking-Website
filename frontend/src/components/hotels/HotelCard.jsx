@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Star, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { formatINR } from '../../utils/formatCurrency';
 
 export default function HotelCard({ hotel }) {
   // Use first image or luxury fallback
@@ -88,7 +89,7 @@ export default function HotelCard({ hotel }) {
             <div className="text-lg font-extrabold text-slate-900">
               {hotel.startingPrice > 0 ? (
                 <>
-                  ${hotel.startingPrice}{' '}
+                  {formatINR(hotel.startingPrice)}{' '}
                   <span className="text-xs font-normal text-slate-500">/ night</span>
                 </>
               ) : (

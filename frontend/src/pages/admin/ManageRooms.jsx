@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import { formatCurrency } from '../../utils/formatCurrency';
 import {
   Bed,
   Plus,
@@ -13,7 +14,7 @@ import {
   X,
   Loader2,
   Users,
-  DollarSign,
+  IndianRupee,
   AlertCircle,
 } from 'lucide-react';
 
@@ -35,7 +36,7 @@ export default function ManageRooms() {
     hotel: '',
     roomType: 'Deluxe',
     roomNumber: '',
-    pricePerNight: '350',
+    pricePerNight: '8500',
     maxGuests: '2',
     bedType: 'King Size',
     description: '',
@@ -95,7 +96,7 @@ export default function ManageRooms() {
       hotel: selectedHotelId,
       roomType: 'Deluxe',
       roomNumber: '',
-      pricePerNight: '350',
+      pricePerNight: '8500',
       maxGuests: '2',
       bedType: 'King Size',
       description: '',
@@ -318,7 +319,7 @@ export default function ManageRooms() {
                       </span>
                     </td>
                     <td className="py-4 px-6 font-extrabold text-slate-900 text-sm">
-                      ${room.pricePerNight}
+                      {formatCurrency(room.pricePerNight, room.currency || 'INR')}
                     </td>
                     <td className="py-4 px-6 font-medium">
                       {room.maxGuests} Guests
@@ -440,12 +441,12 @@ export default function ManageRooms() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
-                    Price per Night ($) *
+                    Price per Night (₹) *
                   </label>
                   <input
                     type="number"
                     min="0"
-                    step="10"
+                    step="100"
                     required
                     value={formData.pricePerNight}
                     onChange={(e) => setFormData({ ...formData, pricePerNight: e.target.value })}

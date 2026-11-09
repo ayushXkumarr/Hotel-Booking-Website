@@ -4,7 +4,7 @@ import {
   Building2,
   ShieldCheck,
   CalendarCheck,
-  DollarSign,
+  IndianRupee,
   Clock,
   HeartHandshake,
   Sparkles,
@@ -49,7 +49,7 @@ export default function FeaturesPage() {
       subtitle: 'Guaranteed Nightly Snapshots',
       description:
         'What you see is what you pay. Every booking locks in an immutable price snapshot at reservation time, protecting your rate from retroactive administrative adjustments.',
-      icon: <DollarSign className="w-6 h-6 text-emerald-600" />,
+      icon: <IndianRupee className="w-6 h-6 text-emerald-600" />,
       tag: 'Best Rate',
       highlight: 'Zero Hidden Surcharges',
     },

@@ -11,6 +11,7 @@ import Room from '../src/models/Room.js';
 import Booking from '../src/models/Booking.js';
 import { roomMutex } from '../src/controllers/bookingController.js';
 import { provisionAdmin } from '../src/utils/seedAdmin.js';
+import { runCurrencyMigration, VERIFIED_INR_ROOM_RATES } from '../src/utils/migrateCurrencyINR.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -339,7 +340,8 @@ async function runEndToEndVerification() {
             hotel: testHotelId,
             roomNumber: 'T-101',
             roomType: 'Deluxe Suite',
-            pricePerNight: 350,
+            pricePerNight: 8500,
+            currency: 'INR',
             maxGuests: 2,
             bedType: 'King Size',
             description: 'Automated test suite suite.',
@@ -553,9 +555,9 @@ async function runEndToEndVerification() {
             guestsCount: 1,
           },
         });
-        const expectedPrice = testNights * 350;
+        const expectedPrice = testNights * 8500;
         if (calcRes.status === 201 && calcRes.data.booking?.totalPrice === expectedPrice && calcRes.data.booking?.totalNights === testNights) {
-          recordResult(18, 'Price & Nights Server Calculation', 'PASS', `${testNights} nights @ $350 = $${expectedPrice}`);
+          recordResult(18, 'Price & Nights Server Calculation', 'PASS', `${testNights} nights @ ₹8,500 = ₹${expectedPrice.toLocaleString('en-IN')}`);
         } else {
           recordResult(18, 'Price & Nights Server Calculation', 'FAIL', `Price: ${calcRes.data.booking?.totalPrice}, Expected: ${expectedPrice}`);
         }
@@ -767,10 +769,10 @@ async function runEndToEndVerification() {
 
       // Test 18: Price calculation logic (In-Memory Math)
       const nights = 4;
-      const rate = 350;
+      const rate = 8500;
       const total = nights * rate;
-      if (total === 1400) {
-        recordResult(18, 'Price & Nights Backend Calculation', 'PASS', 'Formula: nights * pricePerNightSnapshot validated');
+      if (total === 34000) {
+        recordResult(18, 'Price & Nights Backend Calculation', 'PASS', 'Formula: nights * pricePerNightSnapshot validated in INR');
       } else {
         recordResult(18, 'Price & Nights Backend Calculation', 'FAIL', '');
       }
@@ -1160,6 +1162,286 @@ async function runEndToEndVerification() {
       }
     } catch (e) {
       recordResult(27, 'Production Startup Failure Child Process Test', 'FAIL', e.message);
+    }
+
+    // Test 28: Room Currency Denomination Validation
+    try {
+      const mockUsdRoom = new Room({
+        roomType: 'Deluxe',
+        roomNumber: 'MOCK-USD-101',
+        pricePerNight: 350,
+        currency: 'USD',
+        maxGuests: 2,
+        bedType: 'King Size',
+      });
+
+      const isUsdRoom = mockUsdRoom.currency === 'USD';
+      const nonInrFlagged = mockUsdRoom.currency !== 'INR';
+
+      if (isUsdRoom && nonInrFlagged) {
+        recordResult(28, 'Room Currency Denomination Validation', 'PASS', 'Room schema distinguishes USD vs INR denominations; non-INR rooms correctly identified');
+      } else {
+        recordResult(28, 'Room Currency Denomination Validation', 'FAIL', `currency=${mockUsdRoom.currency}`);
+      }
+    } catch (e) {
+      recordResult(28, 'Room Currency Denomination Validation', 'FAIL', e.message);
+    }
+
+    // Test 29: Historical Booking Currency Resolution (Explicit USD Fallback)
+    try {
+      const legacyBookingDoc = new Booking({
+        user: new mongoose.Types.ObjectId(),
+        hotel: new mongoose.Types.ObjectId(),
+        room: new mongoose.Types.ObjectId(),
+        checkInDate: new Date('2025-01-10'),
+        checkOutDate: new Date('2025-01-14'),
+        totalNights: 4,
+        pricePerNightSnapshot: 350,
+        totalPrice: 1400,
+        guestsCount: 2,
+        bookingStatus: 'Confirmed',
+      });
+      legacyBookingDoc.set('currency', undefined);
+
+      const resolvedCurrency = legacyBookingDoc.currency;
+      const jsonCurrency = legacyBookingDoc.toJSON().currency;
+      const amountsPreserved = legacyBookingDoc.pricePerNightSnapshot === 350 && legacyBookingDoc.totalPrice === 1400;
+
+      if (resolvedCurrency === 'USD' && jsonCurrency === 'USD' && amountsPreserved) {
+        recordResult(29, 'Historical Booking USD Resolution Guard', 'PASS', 'Untagged legacy booking explicitly resolves as USD; original numeric amounts ($1,400) preserved');
+      } else {
+        recordResult(29, 'Historical Booking USD Resolution Guard', 'FAIL', `resolved=${resolvedCurrency}, json=${jsonCurrency}, preserved=${amountsPreserved}`);
+      }
+    } catch (e) {
+      recordResult(29, 'Historical Booking USD Resolution Guard', 'FAIL', e.message);
+    }
+
+    // Test 30: New Booking Currency Attribution (Default INR)
+    try {
+      const newBookingDoc = new Booking({
+        user: new mongoose.Types.ObjectId(),
+        hotel: new mongoose.Types.ObjectId(),
+        room: new mongoose.Types.ObjectId(),
+        checkInDate: new Date('2026-06-01'),
+        checkOutDate: new Date('2026-06-04'),
+        totalNights: 3,
+        pricePerNightSnapshot: 8500,
+        totalPrice: 25500,
+        guestsCount: 2,
+        bookingStatus: 'Confirmed',
+      });
+
+      const isDefaultInr = newBookingDoc.currency === 'INR';
+      const inrAmountAccurate = newBookingDoc.totalPrice === 25500 && newBookingDoc.pricePerNightSnapshot === 8500;
+
+      if (isDefaultInr && inrAmountAccurate) {
+        recordResult(30, 'New Booking INR Currency Attribution', 'PASS', 'New bookings default to INR denomination with consistent pricing calculation');
+      } else {
+        recordResult(30, 'New Booking INR Currency Attribution', 'FAIL', `currency=${newBookingDoc.currency}, price=${newBookingDoc.totalPrice}`);
+      }
+    } catch (e) {
+      recordResult(30, 'New Booking INR Currency Attribution', 'FAIL', e.message);
+    }
+
+    // Test 31: Migration Script Dry-Run Safety & Mapping Verification
+    try {
+      const expectedHotels = [
+        'The Grand Luminary Palace',
+        'The Azure Waterfront Manhattan',
+        'Kyoto Zen Haven & Onsen Sanctuary',
+        'The Oasis Palm Monarch',
+        'The Royal Westminster Stays',
+        'Villa Serenity Rainforest Retreat',
+      ];
+
+      const allHotelsMapped = expectedHotels.every((h) => VERIFIED_INR_ROOM_RATES[h] !== undefined);
+      const parisDeluxeRate = VERIFIED_INR_ROOM_RATES['The Grand Luminary Palace']?.['101'] === 35000;
+      const nyStandardRate = VERIFIED_INR_ROOM_RATES['The Azure Waterfront Manhattan']?.['401'] === 24000;
+
+      if (isMongoConnected) {
+        const dryRunReport = await runCurrencyMigration({ isDryRun: true });
+        const dryRunModeCorrect = dryRunReport.mode.includes('DRY-RUN');
+
+        if (allHotelsMapped && parisDeluxeRate && nyStandardRate && dryRunModeCorrect) {
+          recordResult(31, 'Currency Migration Specification & Dry-Run Safety', 'PASS', 'Verified INR rate mappings verified across 6 hotels; dry-run mode safely executed with zero mutations');
+        } else {
+          recordResult(31, 'Currency Migration Specification & Dry-Run Safety', 'FAIL', `mapped=${allHotelsMapped}, paris=${parisDeluxeRate}, ny=${nyStandardRate}, dryRun=${dryRunModeCorrect}`);
+        }
+      } else {
+        // Offline: Test mapping specification and stub Room.find / Booking.find to test dry-run logic
+        const origRoomFind = Room.find;
+        const origBookingFind = Booking.find;
+        let mockDryRunPassed = false;
+        try {
+          Room.find = () => ({
+            populate: async () => [
+              {
+                _id: 'mock_room_1',
+                hotel: { name: 'The Grand Luminary Palace' },
+                roomNumber: '101',
+                roomType: 'Deluxe',
+                pricePerNight: 420,
+                currency: 'USD',
+              },
+            ],
+          });
+          Booking.find = async () => [
+            {
+              _id: 'mock_booking_1',
+              get: (field) => (field === 'currency' ? undefined : null),
+              pricePerNightSnapshot: 420,
+              totalPrice: 840,
+            },
+          ];
+
+          const dryRunReport = await runCurrencyMigration({ isDryRun: true });
+          const isDryRunMode = dryRunReport.mode.includes('DRY-RUN');
+          const roomSlated = dryRunReport.rooms.updated.length === 1 && dryRunReport.rooms.updated[0].newPrice === 35000;
+          const bookingSlated = dryRunReport.bookings.taggedUSD === 1;
+
+          if (isDryRunMode && roomSlated && bookingSlated) {
+            mockDryRunPassed = true;
+          }
+        } finally {
+          Room.find = origRoomFind;
+          Booking.find = origBookingFind;
+        }
+
+        if (allHotelsMapped && parisDeluxeRate && nyStandardRate && mockDryRunPassed) {
+          recordResult(31, 'Currency Migration Specification & Dry-Run Safety', 'PASS', 'Verified INR rate mappings verified across 6 hotels; dry-run logic safely validated without mutations (offline unit mock)');
+        } else {
+          recordResult(31, 'Currency Migration Specification & Dry-Run Safety', 'FAIL', `mapped=${allHotelsMapped}, mockPassed=${mockDryRunPassed}`);
+        }
+      }
+    } catch (e) {
+      recordResult(31, 'Currency Migration Specification & Dry-Run Safety', 'FAIL', e.message);
+    }
+
+    // Test 32: Migration Exact-Match Safeguards (Missing/Mismatched RoomType & Price Detection)
+    try {
+      const origRoomFind = Room.find;
+      const origBookingFind = Booking.find;
+      const origRoomUpdate = Room.updateOne;
+      const origBookingUpdate = Booking.updateOne;
+
+      let missingTypeAmbiguous = false;
+      let mismatchedTypeAmbiguous = false;
+      let missingPriceAmbiguous = false;
+      let mismatchedPriceAmbiguous = false;
+      let exactMatchUpdated = false;
+      let failureReported = false;
+      let allSafeguardsPassed = false;
+
+      try {
+        Booking.find = async () => [];
+
+        // 1. Missing roomType
+        Room.find = () => ({
+          populate: async () => [{
+            _id: 'r_missing_type',
+            hotel: { name: 'The Grand Luminary Palace' },
+            roomNumber: '101',
+            pricePerNight: 420,
+          }],
+        });
+        const rep1 = await runCurrencyMigration({ isDryRun: true });
+        missingTypeAmbiguous = rep1.rooms.ambiguous.length === 1 && rep1.rooms.ambiguous[0].reason.includes('Missing roomType');
+
+        // 2. Mismatched roomType
+        Room.find = () => ({
+          populate: async () => [{
+            _id: 'r_mismatched_type',
+            hotel: { name: 'The Grand Luminary Palace' },
+            roomNumber: '101',
+            roomType: 'Presidential Suite',
+            pricePerNight: 420,
+          }],
+        });
+        const rep2 = await runCurrencyMigration({ isDryRun: true });
+        mismatchedTypeAmbiguous = rep2.rooms.ambiguous.length === 1 && rep2.rooms.ambiguous[0].reason.includes('Mismatched roomType');
+
+        // 3. Missing pricePerNight
+        Room.find = () => ({
+          populate: async () => [{
+            _id: 'r_missing_price',
+            hotel: { name: 'The Grand Luminary Palace' },
+            roomNumber: '101',
+            roomType: 'Deluxe',
+          }],
+        });
+        const rep3 = await runCurrencyMigration({ isDryRun: true });
+        missingPriceAmbiguous = rep3.rooms.ambiguous.length === 1 && rep3.rooms.ambiguous[0].reason.includes('Missing pricePerNight');
+
+        // 4. Mismatched original price (manually modified / custom price)
+        Room.find = () => ({
+          populate: async () => [{
+            _id: 'r_mismatched_price',
+            hotel: { name: 'The Grand Luminary Palace' },
+            roomNumber: '101',
+            roomType: 'Deluxe',
+            pricePerNight: 450, // expected 420
+          }],
+        });
+        const rep4 = await runCurrencyMigration({ isDryRun: true });
+        mismatchedPriceAmbiguous = rep4.rooms.ambiguous.length === 1 && rep4.rooms.ambiguous[0].reason.includes('Mismatched original price');
+
+        // 5. Exact 4-point match (hotel, roomNumber, roomType, originalUsdPrice)
+        Room.find = () => ({
+          populate: async () => [{
+            _id: 'r_exact',
+            hotel: { name: 'The Grand Luminary Palace' },
+            roomNumber: '101',
+            roomType: 'Deluxe',
+            pricePerNight: 420,
+          }],
+        });
+        const rep5 = await runCurrencyMigration({ isDryRun: true });
+        exactMatchUpdated = rep5.rooms.updated.length === 1 && rep5.rooms.updated[0].newPrice === 35000;
+
+        // 6. Partial failure error tracking (Simulated exception)
+        Room.updateOne = async () => { throw new Error('Simulated write failure'); };
+        const rep6 = await runCurrencyMigration({ isDryRun: false });
+        failureReported = rep6.rooms.failed.length === 1 && rep6.rooms.failed[0].roomId === 'r_exact';
+
+        // 7. UpdateOne result inspection: Zero matchedCount treated as failure
+        Room.updateOne = async () => ({ matchedCount: 0, modifiedCount: 0 });
+        const rep7 = await runCurrencyMigration({ isDryRun: false });
+        const zeroMatchRecorded = rep7.rooms.failed.length === 1 && rep7.rooms.updated.length === 0 && rep7.rooms.failed[0].error.includes('Zero documents matched');
+
+        // 8. UpdateOne result inspection: Zero modifiedCount treated as failure
+        Room.updateOne = async () => ({ matchedCount: 1, modifiedCount: 0 });
+        const rep8 = await runCurrencyMigration({ isDryRun: false });
+        const zeroModifyRecorded = rep8.rooms.failed.length === 1 && rep8.rooms.updated.length === 0 && rep8.rooms.failed[0].error.includes('Zero documents modified');
+
+        // 9. UpdateOne live success: matchedCount > 0 and modifiedCount > 0
+        Room.updateOne = async () => ({ matchedCount: 1, modifiedCount: 1, acknowledged: true });
+        const rep9 = await runCurrencyMigration({ isDryRun: false });
+        const liveSuccessRecorded = rep9.rooms.updated.length === 1 && rep9.rooms.failed.length === 0;
+
+        allSafeguardsPassed =
+          missingTypeAmbiguous &&
+          mismatchedTypeAmbiguous &&
+          missingPriceAmbiguous &&
+          mismatchedPriceAmbiguous &&
+          exactMatchUpdated &&
+          failureReported &&
+          zeroMatchRecorded &&
+          zeroModifyRecorded &&
+          liveSuccessRecorded;
+      } finally {
+        Room.find = origRoomFind;
+        Booking.find = origBookingFind;
+        Room.updateOne = origRoomUpdate;
+        Booking.updateOne = origBookingUpdate;
+      }
+
+      if (allSafeguardsPassed) {
+        recordResult(32, 'Migration Exact-Match Safeguards & Result Verification', 'PASS', 'Strictly validates roomType, price, matchedCount, modifiedCount, and error tracking with zero-match/zero-modify detection');
+      } else {
+        recordResult(32, 'Migration Exact-Match Safeguards & Result Verification', 'FAIL', `missingType=${missingTypeAmbiguous}, mismatchedType=${mismatchedTypeAmbiguous}, missingPrice=${missingPriceAmbiguous}, mismatchedPrice=${mismatchedPriceAmbiguous}, exactMatch=${exactMatchUpdated}, failure=${failureReported}`);
+      }
+    } catch (e) {
+      recordResult(32, 'Migration Exact-Match Safeguards & Error Tracking', 'FAIL', e.message);
     }
   } finally {
     if (serverInstance) {

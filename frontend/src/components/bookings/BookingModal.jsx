@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { formatINR } from '../../utils/formatCurrency';
 import {
   Calendar,
   Users,
-  DollarSign,
+  IndianRupee,
   CheckCircle2,
   AlertTriangle,
   X,
@@ -218,7 +219,7 @@ export default function BookingModal({ room, hotel, isOpen, onClose }) {
               <div className="flex justify-between">
                 <span className="text-slate-400">Total Price:</span>
                 <span className="text-sm font-extrabold text-slate-900">
-                  ${bookingSuccess.totalPrice}
+                  {formatINR(bookingSuccess.totalPrice)}
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-slate-200">
@@ -334,21 +335,21 @@ export default function BookingModal({ room, hotel, isOpen, onClose }) {
               <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-2.5 text-xs">
                 <div className="flex items-center justify-between text-slate-600">
                   <span>
-                    ${availabilityResult.pricePerNight} × {availabilityResult.totalNights}{' '}
+                    {formatINR(availabilityResult.pricePerNight)} × {availabilityResult.totalNights}{' '}
                     {availabilityResult.totalNights === 1 ? 'night' : 'nights'}
                   </span>
                   <span className="font-semibold text-slate-900">
-                    ${availabilityResult.totalPrice}
+                    {formatINR(availabilityResult.totalPrice)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600">
                   <span>Simulated Service Fee (0%)</span>
-                  <span className="text-emerald-600 font-semibold">$0.00</span>
+                  <span className="text-emerald-600 font-semibold">{formatINR(0)}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-sm">
                   <span className="font-bold text-slate-900">Total Price:</span>
                   <span className="text-xl font-extrabold text-brand-700">
-                    ${availabilityResult.totalPrice}
+                    {formatINR(availabilityResult.totalPrice)}
                   </span>
                 </div>
               </div>

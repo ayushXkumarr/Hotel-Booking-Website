@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../context/ToastContext';
 import ConfirmationModal from '../components/common/ConfirmationModal';
+import { formatCurrency } from '../utils/formatCurrency';
 import {
   CalendarCheck,
   Building2,
@@ -248,7 +249,7 @@ export default function MyBookingsPage() {
                           Total Price Paid
                         </span>
                         <span className="text-2xl font-black text-slate-900">
-                          ${b.totalPrice}
+                          {formatCurrency(b.totalPrice, b.currency || 'USD')}
                         </span>
                       </div>
                       <div className="pl-3 border-l border-slate-200">
@@ -301,7 +302,7 @@ export default function MyBookingsPage() {
       <ConfirmationModal
         isOpen={!!selectedBookingToCancel}
         title="Cancel Reservation?"
-        message={`Are you sure you want to cancel your reservation for "${selectedBookingToCancel?.hotel?.name}" (Room ${selectedBookingToCancel?.room?.roomNumber}) from ${new Date(selectedBookingToCancel?.checkInDate).toLocaleDateString()} to ${new Date(selectedBookingToCancel?.checkOutDate).toLocaleDateString()}? Per our policy, your payment of $${selectedBookingToCancel?.totalPrice} will be refunded.`}
+        message={`Are you sure you want to cancel your reservation for "${selectedBookingToCancel?.hotel?.name}" (Room ${selectedBookingToCancel?.room?.roomNumber}) from ${new Date(selectedBookingToCancel?.checkInDate).toLocaleDateString()} to ${new Date(selectedBookingToCancel?.checkOutDate).toLocaleDateString()}? Per our policy, your payment of ${formatCurrency(selectedBookingToCancel?.totalPrice, selectedBookingToCancel?.currency || 'USD')} will be refunded.`}
         confirmText="Confirm Cancellation"
         isDanger={true}
         isLoading={cancelling}

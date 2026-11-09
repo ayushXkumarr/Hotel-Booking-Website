@@ -171,6 +171,7 @@ export const createRoom = async (req, res, next) => {
       roomNumber: trimmedRoomNumber,
       description: description ? description.trim() : '',
       pricePerNight: parsedPrice,
+      currency: req.body.currency || 'INR',
       maxGuests: parsedGuests,
       bedType: bedType ? bedType.trim() : 'King Size',
       amenities: Array.isArray(amenities) ? amenities.map((a) => String(a).trim()).filter(Boolean) : [],
@@ -279,6 +280,9 @@ export const updateRoom = async (req, res, next) => {
     if (description !== undefined) room.description = description.trim();
     if (bedType !== undefined) room.bedType = bedType.trim();
     if (isAvailable !== undefined) room.isAvailable = Boolean(isAvailable);
+    if (req.body.currency !== undefined && ['INR', 'USD'].includes(req.body.currency)) {
+      room.currency = req.body.currency;
+    }
 
     if (Array.isArray(amenities)) {
       room.amenities = amenities.map((a) => String(a).trim()).filter(Boolean);

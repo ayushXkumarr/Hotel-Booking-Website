@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import { formatINR } from '../../utils/formatCurrency';
 import {
   Building2,
   Plus,
@@ -263,7 +264,7 @@ export default function ManageHotels() {
                       </div>
                     </td>
                     <td className="py-4 px-6 font-semibold text-slate-800">
-                      {hotel.startingPrice > 0 ? `$${hotel.startingPrice} / nt` : 'N/A'}
+                      {hotel.startingPrice > 0 ? `${formatINR(hotel.startingPrice)} / nt` : 'N/A'}
                     </td>
                     <td className="py-4 px-6">
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">

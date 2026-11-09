@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import RoomCard from '../components/rooms/RoomCard';
 import BookingModal from '../components/bookings/BookingModal';
+import { formatINR } from '../utils/formatCurrency';
 import {
   MapPin,
   Star,
@@ -143,7 +144,7 @@ export default function HotelDetailsPage() {
         <div className="bg-slate-50 px-5 py-3 rounded-2xl border border-slate-200 text-right">
           <div className="text-[10px] uppercase font-semibold text-slate-400">Starting from</div>
           <div className="text-2xl font-black text-slate-900">
-            ${hotel.startingPrice}{' '}
+            {formatINR(hotel.startingPrice)}{' '}
             <span className="text-xs font-normal text-slate-500">/ night</span>
           </div>
         </div>

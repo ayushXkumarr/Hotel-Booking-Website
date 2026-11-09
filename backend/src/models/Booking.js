@@ -49,6 +49,21 @@ const bookingSchema = new mongoose.Schema(
       required: [true, 'Total reservation price is required'],
       min: [0, 'Total price cannot be negative'],
     },
+    currency: {
+      type: String,
+      enum: ['INR', 'USD'],
+      default: function () {
+        // Only assign default 'INR' to newly instantiated documents.
+        // Existing documents hydrated from MongoDB retain undefined to preserve historical USD resolution.
+        if (this && this.isNew) return 'INR';
+        return undefined;
+      },
+      get: function (v) {
+        // Historical bookings without currency in DB explicitly resolve as 'USD'
+        if (!v) return 'USD';
+        return v;
+      },
+    },
     guestsCount: {
       type: Number,
       required: [true, 'Please specify the number of guests'],
@@ -74,6 +89,8 @@ const bookingSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { getters: true, virtuals: true },
+    toObject: { getters: true, virtuals: true },
   }
 );
 
@@ -82,6 +99,38 @@ const bookingSchema = new mongoose.Schema(
  * 1. Overlap Conflict Detection: Filter active confirmed bookings for a specific room across dates.
  * 2. User History Index: Quickly fetch user bookings sorted by most recent.
  */
+/**
+ * Query Post-Middleware:
+ * Ensures all query results—including .lean() plain objects that bypass getters—explicitly
+ * resolve with currency: 'USD' if the database record omitted the currency field.
+ */
+function applyLegacyCurrencyFallback(docs) {
+  if (!docs) return;
+  if (Array.isArray(docs)) {
+    docs.forEach(applyLegacyCurrencyFallback);
+  } else if (typeof docs === 'object') {
+    if (!docs.currency) {
+      docs.currency = 'USD';
+    }
+  }
+}
+
+bookingSchema.post(['find', 'findOne', 'findOneAndUpdate'], function (docs) {
+  applyLegacyCurrencyFallback(docs);
+});
+
+/**
+ * Pre-Save Middleware:
+ * For brand-new booking records where currency is not explicitly provided, default to 'INR'.
+ * Legacy hydrated documents (isNew === false) are preserved untouched.
+ */
+bookingSchema.pre('save', function (next) {
+  if (this.isNew && !this.get('currency', null, { getters: false })) {
+    this.currency = 'INR';
+  }
+  next();
+});
+
 bookingSchema.index({ room: 1, bookingStatus: 1, checkInDate: 1, checkOutDate: 1 });
 bookingSchema.index({ user: 1, createdAt: -1 });
 

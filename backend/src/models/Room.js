@@ -37,6 +37,12 @@ const roomSchema = new mongoose.Schema(
       min: [0, 'Price per night cannot be negative'],
       index: true,
     },
+    currency: {
+      type: String,
+      enum: ['INR', 'USD'],
+      // Note: No default value here. Un-migrated database records without a currency field
+      // must remain undefined so that booking validation strictly rejects them until migrated.
+    },
     maxGuests: {
       type: Number,
       required: [true, 'Please specify the maximum guest capacity'],
