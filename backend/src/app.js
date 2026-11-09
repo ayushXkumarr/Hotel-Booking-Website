@@ -18,26 +18,71 @@ dotenv.config(); // fallback
 
 const app = express();
 
-// Middleware: Enable CORS for frontend requests
-const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:5173',
-  'http://localhost:3000',
+/**
+ * Explicit list of development origins permitted during local development.
+ * These are NEVER permitted in production mode.
+ */
+export const explicitDevOrigins = [
+  'http://localhost:5173',
   'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
 ];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, or Postman)
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, true); // Permissive in dev mode
-      }
-    },
-    credentials: true,
-  })
-);
+/**
+ * Builds the effective allowed origins based on CLIENT_URL and runtime environment.
+ *
+ * PRODUCTION SECURITY REQUIREMENT:
+ * In production (NODE_ENV === 'production'), only explicitly configured CLIENT_URL origins are permitted.
+ * Localhost development origins are strictly excluded in production.
+ *
+ * @param {string} [clientUrlEnv]
+ * @param {string} [nodeEnv]
+ * @returns {string[]}
+ */
+export const buildAllowedOrigins = (
+  clientUrlEnv = process.env.CLIENT_URL,
+  nodeEnv = process.env.NODE_ENV
+) => {
+  const isProduction = nodeEnv === 'production';
+  const configuredUrls = clientUrlEnv
+    ? clientUrlEnv.split(',').map((u) => u.trim().replace(/\/$/, '')).filter(Boolean)
+    : [];
+
+  if (isProduction) {
+    return configuredUrls;
+  }
+
+  return Array.from(new Set([...configuredUrls, ...explicitDevOrigins]));
+};
+
+export const allowedOrigins = buildAllowedOrigins();
+
+/**
+ * CORS Middleware Configuration
+ * Enforces cross-origin network boundary policies on browser HTTP requests.
+ * (Note: CORS is a browser resource-sharing policy, not user authentication or authorization).
+ */
+export const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser requests with no origin header (e.g. mobile apps, curl, server-to-server)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const currentAllowed = buildAllowedOrigins(process.env.CLIENT_URL, process.env.NODE_ENV);
+    const normalizedOrigin = origin.replace(/\/$/, '');
+
+    if (currentAllowed.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS policy violation: Origin '${origin}' is not permitted by CORS policy.`));
+  },
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 // Middleware: Parse incoming JSON and URL-encoded bodies
 app.use(express.json());
@@ -59,7 +104,7 @@ app.use('/api/hotels', hotelRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-// Fallback & Error Handling Middlewares
+// Centralized error handling
 app.use(notFound);
 app.use(errorHandler);
 

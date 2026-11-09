@@ -15,6 +15,11 @@ export const errorHandler = (err, req, res, next) => {
   let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   let message = err.message || 'Internal Server Error';
 
+  // Handle CORS policy violations
+  if (err.message && err.message.startsWith('CORS policy violation')) {
+    statusCode = 403;
+  }
+
   // Handle Mongoose CastError (e.g. invalid MongoDB ObjectId)
   if (err.name === 'CastError') {
     statusCode = 400;
